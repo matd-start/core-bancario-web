@@ -1,0 +1,8 @@
+dist/
+coverage/
+playwright-report/
+test-results/
+package-lock.json
+# Archivos que no se escriben a mano: copias del contrato y tipos generados (ADR-0022).
+contratos/
+src/api/generado/
