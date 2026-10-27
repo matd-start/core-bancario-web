@@ -1,3 +1,3 @@
-# Normaliza saltos de línea: LF en el repositorio, el nativo de cada sistema al hacer checkout.
-* text=auto
-*.sh text eol=lf
+# LF en el repositorio y también en la copia de trabajo, en todos los sistemas: Prettier exige LF (endOfLine) y
+# así "npm run format:check" da lo mismo en Windows que en el CI.
+* text=auto eol=lf
