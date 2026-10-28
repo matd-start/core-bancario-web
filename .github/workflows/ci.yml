@@ -40,7 +40,131 @@ jobs:
       - name: Compilar
         run: npm run build
 
-  # Los jobs de los recorridos en navegador (e2e-simulado y e2e-real) los añade la tarea T19 de la 004.
+      # RNF-13: los contratos copiados y los tipos generados deben coincidir con core-bancario y con el generador.
+      # core-bancario se clona al lado de este repositorio (../core-bancario): así el compose y `contratos:sincronizar`
+      # lo encuentran donde lo esperan en local. actions/checkout no puede salir del workspace, por eso es un git clone.
+      - name: Clonar core-bancario
+        env:
+          REF: ${{ vars.CORE_BANCARIO_REF || 'main' }}
+        run: git clone --depth 1 --branch "$REF" https://github.com/matd-start/core-bancario.git ../core-bancario
+
+      - name: Contratos y tipos al día
+        run: |
+          npm run contratos:sincronizar
+          npm run tipos
+          git diff --exit-code -- contratos src/api/generado
+
+  # RNF-10: la SPA compilada en Chromium, con /bff y /api simulados por página.
+  e2e-simulado:
+    name: Recorridos simulados (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Recorridos simulados
+        run: npm run e2e:simulado
+
+      - name: Informe de Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-simulado-informe
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  # RNF-15, RNF-16: los recorridos del cliente contra el compose completo de core-bancario (Keycloak, API, BFF y esta
+  # SPA servida por nginx con CSP) en http://localhost:5173.
+  e2e-real:
+    name: Recorridos reales (compose completo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # core-bancario se clona al lado de este repositorio (../core-bancario): así el compose y `contratos:sincronizar`
+      # lo encuentran donde lo esperan en local. actions/checkout no puede salir del workspace, por eso es un git clone.
+      - name: Clonar core-bancario
+        env:
+          REF: ${{ vars.CORE_BANCARIO_REF || 'main' }}
+        run: git clone --depth 1 --branch "$REF" https://github.com/matd-start/core-bancario.git ../core-bancario
+
+      # Los valores se generan aquí, se ocultan en el log y solo existen en este job. Van a GITHUB_ENV porque el compose
+      # los exige y porque los recorridos usan la cuenta de administración de Keycloak para preparar usuarios.
+      - name: Preparar .env
+        run: |
+          cp ../core-bancario/.env.example ../core-bancario/.env
+          clave="$(openssl rand -hex 16)"
+          secreto="$(openssl rand -hex 32)"
+          secreto_web_clientes="$(openssl rand -hex 32)"
+          secreto_web_empleados="$(openssl rand -hex 32)"
+          echo "::add-mask::$clave"
+          echo "::add-mask::$secreto"
+          echo "::add-mask::$secreto_web_clientes"
+          echo "::add-mask::$secreto_web_empleados"
+          {
+            echo "KC_BOOTSTRAP_ADMIN_USERNAME=admin-ci"
+            echo "KC_BOOTSTRAP_ADMIN_PASSWORD=$clave"
+            echo "KC_CLIENTES_API_SECRET=$secreto"
+            echo "KC_WEB_CLIENTES_SECRET=$secreto_web_clientes"
+            echo "KC_WEB_EMPLEADOS_SECRET=$secreto_web_empleados"
+            echo "CORE_BANCARIO_WEB_DIR=${{ github.workspace }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Levantar el compose completo
+        run: docker compose -f ../core-bancario/docker-compose.yml --profile app --profile web up -d --build --wait
+
+      - name: Esperar a que Keycloak importe los realms
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/realms/clientes/.well-known/openid-configuration > /dev/null &&
+               curl -sf http://localhost:8080/realms/empleados/.well-known/openid-configuration > /dev/null; then
+              echo "Keycloak arrancó e importó los realms."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Keycloak no respondió en 5 minutos."
+          exit 1
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Recorridos reales
+        run: npm run e2e:real
+
+      - name: Traza de Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-real-traza
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+      - name: Logs de los contenedores
+        if: failure()
+        run: docker compose -f ../core-bancario/docker-compose.yml --profile app --profile web logs
 
   secrets:
     name: Escaneo de secretos
