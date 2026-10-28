@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import * as OTPAuth from 'otpauth';
 import { codigoTotp, esperarSiguienteVentana } from '../ayudas/totp';
 
 /**
@@ -46,13 +47,14 @@ export async function completarCambioDeClave(pagina: Page, claveNueva: string) {
 }
 
 /**
- * RN-24: inscribe el segundo factor. Lee el secreto en base32 de la pantalla ("¿No puedes escanear?") y escribe el
- * primer código. Devuelve el secreto para los ingresos siguientes.
+ * RN-24: inscribe el segundo factor. Keycloak guarda el secreto en el campo oculto totpSecret y muestra su forma base32
+ * (la del código QR); NavegadorSimulado de Keycloak.Tests hace la misma conversión desde el campo oculto. Devuelve el
+ * secreto en base32 para los ingresos siguientes.
  */
 export async function inscribirOtp(pagina: Page): Promise<string> {
-  await pagina.locator('#mode-manual').click();
-  const secreto = (await pagina.locator('#kc-totp-secret-key').innerText()).replaceAll(/\s+/g, '');
-  expect(secreto).not.toBe('');
+  const crudo = await pagina.locator('input[name="totpSecret"]').inputValue();
+  expect(crudo).not.toBe('');
+  const secreto = OTPAuth.Secret.fromUTF8(crudo).base32;
   await escribir(pagina, pagina.locator('input[name="totp"]'), codigoTotp(secreto));
   await escribir(pagina, pagina.locator('input[name="userLabel"]'), 'telefono-de-pruebas');
   await pagina.keyboard.press('Enter');
