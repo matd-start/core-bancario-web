@@ -13,4 +13,4 @@
 Notas de la verificación (el detalle está en la respuesta del coder):
 
 - `npm run e2e:real` no se ejecutó: el compose completo no se pudo levantar sin tocar el entorno local del autor (ya hay contenedores `core-bancario-*` en marcha con otros secretos y realms viejos).
-- `npm run e2e:simulado`: 7 de las 37 pruebas fallan por la infraestructura de `e2e/simulado/entorno.ts`, no por la SPA (ver la respuesta del coder). Con una copia temporal corregida del entorno, las 37 pasan.
+- `npm run e2e:simulado`: 37 de 37 (dos corridas seguidas). Las 7 que fallaban por `e2e/simulado/entorno.ts` (fixture `bff` sin `auto` y carrera de CA12) las corrigió el test-writer con el visto bueno del autor, en el commit `8db341d`, junto con la espera de CL24 en Vitest.
