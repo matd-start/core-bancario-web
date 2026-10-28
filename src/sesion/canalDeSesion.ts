@@ -1,4 +1,3 @@
-// SDD: esqueleto creado por test-writer
 import type { SesionDto } from './relojDeSesion';
 
 export type MotivoDeCierre = 'usuario' | 'inactividad' | 'vida-maxima' | 'revocada';
@@ -12,7 +11,34 @@ export interface CanalDeSesion {
   cerrar(): void;
 }
 
-/** BroadcastChannel("core-bancario-sesion"). No usa localStorage. */
+const NOMBRE_DEL_CANAL = 'core-bancario-sesion';
+
+function esMensajeDeSesion(dato: unknown): dato is MensajeDeSesion {
+  if (typeof dato !== 'object' || dato === null || !('tipo' in dato)) return false;
+  return dato.tipo === 'plazos' || dato.tipo === 'cerrada';
+}
+
+/**
+ * RNF-07: las pestañas del mismo navegador se avisan por BroadcastChannel (no usa localStorage). Quien publica no
+ * recibe su propio mensaje: es el comportamiento de BroadcastChannel entre instancias distintas.
+ */
 export function crearCanalDeSesion(): CanalDeSesion {
-  throw new Error('SDD: no implementado');
+  const canal = new BroadcastChannel(NOMBRE_DEL_CANAL);
+  return {
+    publicar(mensaje) {
+      canal.postMessage(mensaje);
+    },
+    escuchar(fn) {
+      const alRecibir = (evento: MessageEvent<unknown>) => {
+        if (esMensajeDeSesion(evento.data)) fn(evento.data);
+      };
+      canal.addEventListener('message', alRecibir);
+      return () => {
+        canal.removeEventListener('message', alRecibir);
+      };
+    },
+    cerrar() {
+      canal.close();
+    },
+  };
 }
