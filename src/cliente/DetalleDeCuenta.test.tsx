@@ -83,7 +83,8 @@ describe('DetalleDeCuenta', () => {
       patron: '/mis-cuentas/:cuentaId',
     });
 
-    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+    // El timeout cubre el reintento automático de la consulta (retryDelay de ~1 s) antes de mostrar el error.
+    expect(await screen.findByRole('button', { name: 'Reintentar' }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText('Cuenta no encontrada')).not.toBeInTheDocument();
   });
 });

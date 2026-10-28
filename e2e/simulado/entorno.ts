@@ -35,7 +35,13 @@ export function crearCuenta(cambios: Partial<CuentaSimulada> = {}): CuentaSimula
 
 type Vencimiento = 'sesion-vencida-por-inactividad' | 'sesion-vencida-por-vida-maxima';
 
+const HORA_INICIAL = new Date('2026-01-15T10:00:00-05:00');
+
 export class BffSimulado {
+  constructor(horaInicial: Date) {
+    this.referencia = { navegador: horaInicial.getTime(), real: Date.now() };
+  }
+
   area: Area = 'clientes';
   usuario = 'cc1234567';
   rol: 'Cliente' | 'Operador' | null = 'Cliente';
@@ -90,11 +96,24 @@ export class BffSimulado {
     });
   }
 
+  /** Última lectura conocida del reloj del navegador; al principio, el instante en que se instaló el reloj. */
+  private referencia: { navegador: number; real: number };
+
+  /**
+   * La hora del navegador (reloj de Playwright). Si el frame que pidió ya no existe (una navegación lo destruyó), se
+   * estima con la última lectura más el tiempo real transcurrido, que es como fluye el reloj entre runFor.
+   */
   private async ahora(ruta: Route): Promise<number> {
-    return await ruta
-      .request()
-      .frame()
-      .evaluate(() => Date.now());
+    try {
+      const navegador = await ruta
+        .request()
+        .frame()
+        .evaluate(() => Date.now());
+      this.referencia = { navegador, real: Date.now() };
+      return navegador;
+    } catch {
+      return this.referencia.navegador + (Date.now() - this.referencia.real);
+    }
   }
 
   /** La política del BFF (RN-22, RN-25): la inactividad solo la mueve el latido; manda la vida máxima. */
@@ -185,12 +204,15 @@ function problema(estado: number, codigo: string) {
 
 export const test = base.extend<{ bff: BffSimulado }>({
   // El reloj se instala antes de abrir ninguna página: el tiempo fluye solo, y runFor lo adelanta.
-  bff: async ({ context }, usar) => {
-    await context.clock.install({ time: new Date('2026-01-15T10:00:00-05:00') });
-    const bff = new BffSimulado();
-    await bff.instalar(context);
-    await usar(bff);
-  },
+  bff: [
+    async ({ context }, usar) => {
+      await context.clock.install({ time: HORA_INICIAL });
+      const bff = new BffSimulado(HORA_INICIAL);
+      await bff.instalar(context);
+      await usar(bff);
+    },
+    { auto: true },
+  ],
 });
 
 export { expect };
