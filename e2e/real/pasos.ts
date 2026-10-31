@@ -33,6 +33,17 @@ export async function iniciarSesionConTeclado(pagina: Page) {
   await pagina.keyboard.press('Enter');
 }
 
+/**
+ * El ingreso del cliente (realm clientes). El tema escribe el documento normalizado en "username" al enviar, pero
+ * documento.js engancha ese envío en DOMContentLoaded, y el campo ya admite texto antes. Si se envía antes, Keycloak
+ * recibe "1.234.567" sin el tipo y rechaza los datos. Por eso se espera el selector "Tipo de documento", que pone el
+ * mismo script: cuando se ve, el envío ya se normaliza. Una persona tampoco escribe antes de ver el formulario entero.
+ */
+export async function completarDocumentoYClave(pagina: Page, documento: string, clave: string) {
+  await expect(pagina.getByRole('combobox', { name: 'Tipo de documento' })).toBeVisible();
+  await completarUsuarioYClave(pagina, documento, clave);
+}
+
 export async function completarUsuarioYClave(pagina: Page, usuario: string, clave: string) {
   await escribir(pagina, pagina.locator('input[name="username"]'), usuario);
   await escribir(pagina, pagina.locator('input[name="password"]'), clave);
