@@ -71,12 +71,12 @@ const backoffice: Pantalla[] = [
     listo: (p) => p.getByRole('button', { name: 'Iniciar sesión' }),
   },
   {
-    nombre: 'InicioDelBackoffice',
+    nombre: 'BuscarCliente',
     ruta: '/backoffice',
     preparar: (bff) => {
       bff.sesionDeOperador();
     },
-    listo: (p) => p.getByText(/operadora\.maria/),
+    listo: (p) => p.getByRole('button', { name: 'Buscar' }),
   },
   {
     nombre: 'SinPermiso',
