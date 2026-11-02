@@ -85,7 +85,7 @@ jobs:
             test-results
           retention-days: 7
 
-  # RNF-15, RNF-16: los recorridos del cliente contra el compose completo de core-bancario (Keycloak, API, BFF y esta
+  # RNF-15, RNF-16: los recorridos del cliente y del operador contra el compose completo de core-bancario (Keycloak, API, BFF y esta
   # SPA servida por nginx con CSP) en http://localhost:5173.
   e2e-real:
     name: Recorridos reales (compose completo)

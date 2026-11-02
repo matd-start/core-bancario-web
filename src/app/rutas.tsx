@@ -1,5 +1,6 @@
-import type { RouteObject } from 'react-router';
-import { InicioDelBackoffice } from '../backoffice/InicioDelBackoffice';
+import { Navigate, type RouteObject } from 'react-router';
+import { BuscarCliente } from '../backoffice/BuscarCliente';
+import { FichaDeCliente } from '../backoffice/FichaDeCliente';
 import { DetalleDeCuenta } from '../cliente/DetalleDeCuenta';
 import { MisCuentas } from '../cliente/MisCuentas';
 import { AreaDelBackoffice, AreaDelCliente, ErrorDelArea, RedireccionAMisCuentas } from './areas';
@@ -19,7 +20,12 @@ export const rutas: RouteObject[] = [
     path: '/backoffice',
     element: <AreaDelBackoffice />,
     errorElement: <ErrorDelArea />,
-    children: [{ index: true, element: <InicioDelBackoffice /> }],
+    children: [
+      { index: true, element: <BuscarCliente /> },
+      { path: 'clientes/:clienteId', element: <FichaDeCliente /> },
+      // CL-08: una ruta mal escrita del operador vuelve a la búsqueda; sin esto caería en la "*" del área del cliente.
+      { path: '*', element: <Navigate to="/backoffice" replace /> },
+    ],
   },
   { path: '*', element: <RedireccionAMisCuentas /> },
 ];

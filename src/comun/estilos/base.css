@@ -184,6 +184,67 @@ code {
   border-color: var(--error-texto);
 }
 
+/* ── Formularios del backoffice ──────────────────────────────────────────────────────────────────────────────── */
+
+.formulario {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+.formulario--en-linea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  max-width: none;
+}
+
+.formulario__acciones,
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.campo {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.campo label {
+  font-weight: 600;
+}
+
+.campo input,
+.campo select {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio);
+  font: inherit;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+.campo [aria-invalid='true'] {
+  border-color: var(--error-texto);
+}
+
+.campo__error {
+  margin: 0;
+  color: var(--error-texto);
+}
+
+.clave-temporal {
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radio);
+  background: var(--fondo-suave);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 /* ── Diálogos (React Aria) ───────────────────────────────────────────────────────────────────────────────────── */
 
 .dialogo-fondo {

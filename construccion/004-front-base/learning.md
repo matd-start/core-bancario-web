@@ -108,3 +108,89 @@ Si en el paso 10 la API dijera 401 (sesión vencida), el middleware llama a `alT
 1. **Un mensaje de aviso nuevo.** _Copiar:_ mira cómo `MENSAJES_DE_AVISO` en `sesion/avisos.ts` enlaza un código (`'inactividad'`) con un texto, y cómo lo usa `PantallaDeInicio`. _Modificar:_ cambia el texto de `'sesion-cerrada'` y ejecuta `npm test -- avisos`: ¿qué pruebas siguen verdes y cuáles no? _Recrear:_ agrega un aviso `'mantenimiento'` de punta a punta (tipo, mensaje, prueba) sin mirar el código existente.
 2. **Mostrar la moneda en el detalle.** _Copiar:_ lee `formatearSaldo` en `comun/dinero.ts` y su uso en `DetalleDeCuenta.tsx`. _Modificar:_ agrega una línea "Saldo en texto" que muestre `cuenta.saldo.monto` sin formatear y compáralo con el formateado para un saldo grande (`12345678901234.56`). _Recrear:_ escribe desde cero una función `formatearPorcentaje(texto: string)` con `Intl.NumberFormat` que tampoco use `Number`, con dos pruebas.
 3. **Un latido más lento.** _Copiar:_ abre `registroDeActividad.ts` y `registroDeActividad.test.ts` y sigue cómo el temporizador falso controla el tiempo. _Modificar:_ cambia `INTERVALO_MINIMO_ENTRE_LATIDOS_MS` a 30 s y observa qué pruebas fallan y por qué (¿qué dicen sobre el diseño?). _Recrear:_ escribe una prueba nueva, con el temporizador falso, que compruebe que `vaciar()` dos veces seguidas envía el pendiente una sola vez.
+
+---
+
+# Aprendizaje — 004 Front base (bloque 004b: el backoffice)
+
+Lo nuevo de este bloque: formularios con validación, acciones que cambian datos (mutaciones) y un secreto que se muestra una sola vez.
+
+## 1. Mapa del código (lo que añade 004b)
+
+```
+src/
+  app/rutas.tsx                    ahora /backoffice (búsqueda), /backoffice/clientes/:clienteId (ficha) y una ruta "*" propia
+  comun/componentes/Campo.tsx      etiqueta + control + error, unidos por id (accesibilidad de los formularios)
+  backoffice/
+    BuscarCliente.tsx              tipo y número de documento; el número vive solo en el estado del componente
+    FormularioDeRegistro.tsx       React Hook Form + Zod; un 400 de la API se pone junto a su campo
+    esquemaDeRegistro.ts           las reglas de validación (Zod): la fuente de verdad del formulario
+    FichaDeCliente.tsx             datos del cliente y lista de cuentas
+    AbrirCuenta.tsx                selector de moneda y botón con estado "en curso"
+    AccionesDeCuenta.tsx           solo los botones que RN-14 permite; "Cerrar" pide confirmación
+    AccesoDigital.tsx              estado del acceso, acciones y confirmaciones
+    DialogoDeClaveTemporal.tsx     la clave temporal, una sola vez
+    acciones.ts                    funciones puras: estado -> acciones permitidas, y la conversión de textos libres a tipos cerrados
+    consultas.ts                   todos los hooks de TanStack Query del backoffice (consultas y mutaciones)
+infra/nginx/default.conf           una location propia para la búsqueda por documento (RNF-04)
+```
+
+## 2. Recorrido de una interacción: de "Buscar" a "Bloquear" una cuenta
+
+1. **Escribes `1.234.567` y pulsas "Buscar".** `BuscarCliente` guarda lo que escribes en su propio estado (`useState`): nunca en la URL, en `history` ni en un almacenamiento.
+2. El formulario llama `buscar.mutate(documento)` (`useBuscarClientePorDocumento`, en `consultas.ts`) -> `api.GET('/clientes/por-documento?...')` -> nginx -> BFF (pone el token) -> API.
+3. **Si responde 200**, la mutación trae la ficha y `BuscarCliente` navega a `/backoffice/clientes/{id}`: la URL lleva el id del cliente, no su documento. **Si responde 404**, aparece "No hay un cliente con ese documento" y "Registrarlo", que abre `FormularioDeRegistro` con el tipo y el número ya escritos.
+4. `FichaDeCliente` lee el `id` de la URL (`useParams`) y `useFicha(id)` pide `GET /clientes/{id}` con la clave `['ficha', id]`. Pinta los datos, y por cada cuenta una fila con `formatearSaldo`.
+5. `AccesoDigital` hace **su propia consulta** (`['acceso', id]`): si identidad falla (502/503), la ficha sigue visible y solo esa tarjeta dice "Estado del acceso no disponible".
+6. **Pulsas "Bloquear".** `AccionesDeCuenta` llama `cambiar.mutate({ cuentaId, accion: 'Bloquear' })` -> `POST /cuentas/{id}/bloquear`. Mientras viaja, el botón queda `disabled` (`Boton enCurso`).
+7. Con éxito, `onSuccess` ejecuta `invalidateQueries(['ficha', id])`: TanStack Query vuelve a pedir la ficha y la fila pasa a "Bloqueada", ahora con el botón "Desbloquear". Si la API dijera 409 (otro operador la cambió antes), se muestra el mensaje y la ficha se recarga igual, para ver el estado real.
+
+## 3. Conceptos clave
+
+### 3.1 Mutaciones: acciones que cambian datos
+
+- **Qué problema resuelve:** una consulta (`useQuery`) pide datos y se puede repetir sin riesgo. Una acción como "bloquear" o "habilitar" cambia algo en el servidor, y repetirla sola podría hacerlo dos veces.
+- **Dónde:** `backoffice/consultas.ts` (`useMutation`) y `app/clienteDeConsultas.ts` (`retry: 0` y `gcTime: 0` para todas). `Boton` con `enCurso` impide el doble clic: el segundo clic llega a un botón ya deshabilitado.
+- **Analogía:** consultar es mirar un escaparate; mutar es pagar en caja. Mirar dos veces no cuesta nada, pagar dos veces sí: por eso la caja no "reintenta sola" y se cierra mientras cobra.
+- **Un detalle no obvio:** `onSuccess` devuelve la promesa de `invalidateQueries`. Así la mutación sigue "en curso" hasta que la ficha se recarga, y el botón no se habilita antes de ver el resultado.
+
+### 3.2 Formularios con React Hook Form y Zod
+
+- **Qué problema resuelve:** un formulario con seis campos necesita guardar lo escrito, validar, mostrar el error junto a cada campo y marcar el campo como inválido para los lectores de pantalla. A mano son muchos `useState`.
+- **Dónde:** `esquemaDeRegistro.ts` (las reglas, escritas una sola vez con Zod), `FormularioDeRegistro.tsx` (`useForm` con `zodResolver`; `register('correo')` conecta cada campo) y `Campo.tsx` (etiqueta, `aria-invalid`, `aria-describedby`).
+- **Dos fuentes de error, un solo lugar:** Zod avisa en el navegador (por ejemplo, un teléfono sin `+`). Si aun así la API responde 400 con `errors`, `setError` pone ese mensaje en el mismo campo. **El navegador avisa; la API decide.**
+- **Analogía:** Zod es el formulario de la ventanilla que revisa que no falte nada antes de pasar; la API es el funcionario que, aunque todo esté completo, todavía puede rechazar el trámite. En C# se parecería a FluentValidation en el cliente más la validación del servidor.
+- **Un detalle no obvio:** la regla del número de documento depende del tipo (CC/CE o PA), así que es una regla del objeto entero (`.refine`) con `when: () => true`. Sin eso, Zod no la corre si otro campo ya falló, y el operador vería los errores de a uno.
+
+### 3.3 "Parsear en la frontera": textos libres a tipos cerrados
+
+- **Qué problema resuelve:** el contrato publica `estado` como `string`. Si la API un día manda `"Suspendida"`, la app no debe adivinar qué acciones ofrecer.
+- **Dónde:** `acciones.ts` (`comoEstadoDeCuenta` devuelve `null` si no lo conoce; `comoEstadoDelAcceso` devuelve `'no-disponible'`). Un estado desconocido se muestra tal cual y **sin botones**. `primerIngresoPendiente` es `boolean | null`: solo `true` dice algo; `null` significa "no sé", no "no".
+- **Analogía:** el portero que solo deja pasar a quien está en la lista. Quien no aparece no entra, aunque tenga cara de invitado.
+
+### 3.4 Un secreto que se muestra una sola vez
+
+- **Qué problema resuelve:** la clave temporal no debe quedar en ningún sitio después de entregarla: ni en pantalla, ni en la caché, ni en la URL, ni en un almacenamiento.
+- **Dónde:** `AccesoDigital.tsx` (la clave solo existe en `habilitar.data`), `DialogoDeClaveTemporal.tsx` (sin `alCerrar`: no se cierra con Esc ni con un clic fuera) y "Ya la entregué", que llama `habilitar.reset()`. Con `gcTime: 0` la mutación sale de la caché en cuanto nadie la observa.
+- **Analogía:** una nota en un papel que lees y entregas: no la fotocopias. `reset()` es romper el papel y `gcTime: 0` es vaciar la papelera en el acto.
+- **Otro detalle:** el título del diálogo usa la `accion` que devolvió la API, no el botón que se pulsó. Si el operador pulsó "Habilitar" con la pantalla desactualizada y la API restableció, el diálogo dice "Restablecido".
+
+### 3.5 Una URL no es un lugar para datos personales
+
+- **Qué problema resuelve:** el número de documento en una URL queda en el historial, en los logs y puede llegar en `Referer`. Por eso el documento vive solo en el estado de `BuscarCliente` y la ficha se abre por `id`.
+- **Dónde:** `BuscarCliente.tsx` (el registro se abre **dentro** del componente, no en otra ruta) y `consultas.ts` (la búsqueda es una mutación, no una consulta: el documento no entra en una clave de caché). La petición sí lleva el documento en su consulta (`GET ...?numeroDocumento=`), así que en `infra/nginx/default.conf` esa ruta tiene su propia `location` con el `error_log` en `crit`: sin eso, nginx escribiría la línea completa de la petición cuando el BFF falla.
+- **Analogía:** gritar el número de cédula en la fila del banco frente a susurrarlo en la ventanilla. La URL es la fila: todos la oyen.
+
+## 4. Decisiones de esta implementación que conviene conocer
+
+- `/backoffice/*` tiene su propia ruta `*` que lleva a la búsqueda. Sin ella, una ruta mal escrita caía en la `*` del área del cliente y el operador veía la pantalla de "otra sesión abierta".
+- El tipo de documento es un `<select>` nativo: ya es accesible y se maneja con teclado; un Select de React Aria no aportaba nada aquí.
+- `@hookform/resolvers` es la pieza que une RHF y Zod; ADR-0022 la nombra (6.0.0), pero esa versión declara `effect@^4` como peer opcional y `npm` no la resuelve junto al resto. Se instaló la 7.0.0, que instala limpio con RHF 7.91.0 y Zod 4.6.7. El autor lo aceptó el 2026-11-02 como desviación (opción a), en lugar de forzar la 6.0.0 con `--legacy-peer-deps`, que solo esconde el conflicto y obligaría a repetirlo en cada `npm ci`. ADR-0022 se actualiza en el próximo PR de `core-bancario`.
+- `esquemaDeRegistro.ts` llama `z.config({ jitless: true })` antes de crear el primer esquema. Zod 4 intenta `new Function('')` para compilar sus validadores; lo atrapa si falla, pero la CSP de nginx (`script-src 'self'`, sin `unsafe-eval`) hace que el navegador anote una violación en cada carga, y la prueba real `F004_RNF03_*` exige cero violaciones. Una consecuencia de que la CSP sea estricta: cada librería nueva se prueba también contra ella.
+- "Habilitar" y "Restablecer" llaman al mismo endpoint (`POST .../acceso-digital/habilitar`): la API decide cuál de las dos hizo y lo dice en `accion`.
+
+## 5. Para practicar (Copiar -> Modificar -> Recrear)
+
+1. **Una regla de validación nueva.** _Copiar:_ lee `esquemaDeRegistro.ts` y la prueba `esquemaDeRegistro.test.ts` del teléfono. _Modificar:_ haz que el teléfono acepte también 7 dígitos tras el `+` y mira qué pruebas fallan y por qué. _Recrear:_ añade un campo "Dirección" opcional (de 0 a 200 caracteres) al esquema, con dos pruebas, sin mirar cómo se hizo con `nombres`.
+2. **Otra acción con confirmación.** _Copiar:_ sigue cómo `AccionesDeCuenta` pide confirmar "Cerrar" con `DialogoDeConfirmacion`. _Modificar:_ haz que "Bloquear" también pida confirmación y observa qué prueba de `FichaDeCliente.test.tsx` se rompe (¿qué dice eso de la prueba?). _Recrear:_ escribe un componente `ConfirmarYEjecutar` mínimo que reciba el texto y la acción, y úsalo en las dos.
+3. **Un estado nuevo.** _Copiar:_ mira `accionesDeCuenta` y `comoEstadoDeCuenta` en `acciones.ts`. _Modificar:_ añade el estado `'Suspendida'` a `EstadoDeCuenta` y comprueba qué te obliga a cambiar el compilador (el `switch` sin `default` es la pista). _Recrear:_ define qué acciones tendría `Suspendida`, escribe primero la prueba en `acciones.test.ts` y luego el código.
