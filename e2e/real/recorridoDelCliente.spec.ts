@@ -6,6 +6,7 @@ import { crearOperador, eliminarUsuario, esperarALosRealms, type UsuarioDePrueba
 import {
   URL_DE_LA_APP,
   completarCambioDeClave,
+  completarDocumentoYClave,
   completarUsuarioYClave,
   conPuntosDeMiles,
   documentoUnico,
@@ -116,7 +117,7 @@ test('F004_CA03_PrimerIngreso_CambiaClaveInscribeOtpYLlegaAMisCuentas', async ()
 
   await iniciarSesionConTeclado(pagina);
   // CA-17: el documento se escribe con puntos de miles.
-  await completarUsuarioYClave(pagina, conPuntosDeMiles(numeroDeDocumento), claveTemporal);
+  await completarDocumentoYClave(pagina, conPuntosDeMiles(numeroDeDocumento), claveTemporal);
   // El orden lo fija el realm clientes: CONFIGURE_TOTP tiene priority 10 y UPDATE_PASSWORD 30, así que Keycloak pide
   // primero el segundo factor y después la clave nueva (la spec de CA-03 no fija el orden).
   secretoDelCliente = await inscribirOtp(pagina);
@@ -280,7 +281,7 @@ test('F004_CA01_ClienteIniciaSesionConOtp_VeMisCuentasYAlSalirPideCredenciales',
   await iniciarSesionConTeclado(pagina);
   // Keycloak pide usuario y clave otra vez: la sesión anterior no se reabre (CL-09).
   await expect(pagina.locator('input[name="username"]')).toBeVisible();
-  await completarUsuarioYClave(pagina, conPuntosDeMiles(numeroDeDocumento), CLAVE_NUEVA_DEL_CLIENTE);
+  await completarDocumentoYClave(pagina, conPuntosDeMiles(numeroDeDocumento), CLAVE_NUEVA_DEL_CLIENTE);
   await ingresarOtp(pagina, secretoDelCliente);
   await expect(pagina.getByRole('heading', { name: 'Mis cuentas' })).toBeVisible();
   await expect(pagina.getByText(numeroDeCuenta)).toBeVisible();

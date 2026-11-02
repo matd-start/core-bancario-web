@@ -33,6 +33,33 @@ export function crearCuenta(cambios: Partial<CuentaSimulada> = {}): CuentaSimula
   };
 }
 
+export interface ClienteSimulado {
+  id: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  telefono: string;
+  fechaRegistro: string;
+}
+
+export const ID_DEL_CLIENTE = '0199a000-0000-7000-8000-0000000000c1';
+
+export function crearCliente(cambios: Partial<ClienteSimulado> = {}): ClienteSimulado {
+  return {
+    id: ID_DEL_CLIENTE,
+    tipoDocumento: 'CC',
+    numeroDocumento: '1234567',
+    nombres: 'Ana María',
+    apellidos: 'Pérez Gómez',
+    correo: 'ana.perez@example.com',
+    telefono: '+573001234567',
+    fechaRegistro: '2026-03-10T09:00:00Z',
+    ...cambios,
+  };
+}
+
 type Vencimiento = 'sesion-vencida-por-inactividad' | 'sesion-vencida-por-vida-maxima';
 
 const HORA_INICIAL = new Date('2026-01-15T10:00:00-05:00');
@@ -52,6 +79,18 @@ export class BffSimulado {
   estadoDeLasCuentas: number | null = null;
   /** Si es true, /api/mis-cuentas no responde nunca (para ver el indicador de carga). */
   cuentasSinRespuesta = false;
+
+  // ── Backoffice (004b): el cliente que el operador busca, con las cuentas de `cuentas` y su acceso digital ──
+  cliente: ClienteSimulado = crearCliente();
+  /** "SinAcceso", "Habilitado" o "Deshabilitado" (el contrato publica el estado como texto). */
+  estadoDeAcceso = 'SinAcceso';
+  primerIngresoPendiente: boolean | null = null;
+  /** Si no es null, el estado del acceso responde con ese HTTP (502 o 503: el sistema de identidad no responde). */
+  estadoDeAccesoHttp: number | null = null;
+  /** Si no es null, la ficha del cliente responde con ese HTTP en vez de los datos. */
+  fichaHttp: number | null = null;
+  claveTemporal = 'Tmp-Clave-9XyZ-2026';
+  habilitaciones = 0;
 
   latidos = 0;
   salidas = 0;
@@ -162,6 +201,60 @@ export class BffSimulado {
     await ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(this.sesionDto(ahora)) });
   }
 
+  /** Las rutas del operador: buscar, ficha, estado del acceso y habilitar. Devuelve true si atendió la petición. */
+  private async responderBackoffice(ruta: Route, url: URL): Promise<boolean> {
+    const metodo = ruta.request().method();
+    const json = (cuerpo: unknown) => ({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(cuerpo),
+    });
+    if (url.pathname === '/api/clientes/por-documento') {
+      const coincide = normalizarDocumento(url.searchParams.get('numeroDocumento')) === this.cliente.numeroDocumento;
+      await ruta.fulfill(
+        coincide ? json({ cliente: this.cliente, cuentas: this.cuentas }) : problema(404, 'no-encontrado'),
+      );
+      return true;
+    }
+    const acceso = /^\/api\/clientes\/([^/]+)\/acceso-digital(\/habilitar)?$/.exec(url.pathname);
+    if (acceso !== null) {
+      if (acceso[2] !== undefined && metodo === 'POST') {
+        this.habilitaciones++;
+        await ruta.fulfill(
+          json({
+            solicitudId: '0199a000-0000-7000-8000-0000000000a1',
+            clienteId: this.cliente.id,
+            accion: 'Habilitar',
+            claveTemporal: this.claveTemporal,
+            fecha: '2026-03-15T10:30:00Z',
+          }),
+        );
+        return true;
+      }
+      if (this.estadoDeAccesoHttp !== null) {
+        await ruta.fulfill(problema(this.estadoDeAccesoHttp, 'identidad-sin-respuesta'));
+        return true;
+      }
+      await ruta.fulfill(
+        json({
+          clienteId: this.cliente.id,
+          estado: this.estadoDeAcceso,
+          primerIngresoPendiente: this.primerIngresoPendiente,
+        }),
+      );
+      return true;
+    }
+    if (/^\/api\/clientes\/[^/]+$/.test(url.pathname)) {
+      await ruta.fulfill(
+        this.fichaHttp === null
+          ? json({ cliente: this.cliente, cuentas: this.cuentas })
+          : problema(this.fichaHttp, 'error-inesperado'),
+      );
+      return true;
+    }
+    return false;
+  }
+
   private async responderApi(ruta: Route) {
     const ahora = await this.ahora(ruta);
     const estado = this.evaluar(ahora);
@@ -170,6 +263,7 @@ export class BffSimulado {
       return;
     }
     const url = new URL(ruta.request().url());
+    if (await this.responderBackoffice(ruta, url)) return;
     if (url.pathname === '/api/mis-cuentas') {
       this.consultasDeCuentas++;
       if (this.cuentasSinRespuesta) return; // nunca responde: la pantalla se queda cargando
@@ -192,6 +286,11 @@ export class BffSimulado {
     }
     await ruta.fulfill(problema(404, 'no-encontrado'));
   }
+}
+
+/** El documento como lo entiende la API: sin puntos, espacios ni guiones. */
+function normalizarDocumento(texto: string | null): string {
+  return (texto ?? '').replaceAll(/[\s.-]/g, '').toUpperCase();
 }
 
 function problema(estado: number, codigo: string) {

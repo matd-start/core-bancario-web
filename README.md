@@ -63,6 +63,21 @@ npm run tipos
 
 El CI repite los dos comandos y falla si queda algún cambio (`git diff --exit-code`).
 
+## Pantallas del backoffice (004b)
+
+El operador entra por `/backoffice` y lo usa desde 1280 px. Las rutas son `/backoffice` (búsqueda) y `/backoffice/clientes/:clienteId` (ficha); cualquier otra ruta bajo `/backoffice` vuelve a la búsqueda.
+
+| Pantalla                                  | Qué permite                                                                                                                                                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Buscar cliente (`BuscarCliente`)          | Buscar por tipo (CC, CE, PA) y número de documento, con o sin puntos. Si no existe, ofrece "Registrarlo" con el formulario de registro (React Hook Form + Zod avisan en el navegador; la API sigue decidiendo).      |
+| Ficha (`FichaDeCliente`)                  | Datos del cliente y sus cuentas con el saldo exacto. Abrir una cuenta en COP o USD; bloquear, desbloquear y cerrar (con confirmación) solo cuando el estado lo permite (RN-14).                                      |
+| Acceso digital (`AccesoDigital`)          | Estado ("Sin habilitar", "Habilitado", "Deshabilitado"), "primer ingreso pendiente" y las acciones Habilitar, Restablecer y Deshabilitar con su confirmación. Si identidad no responde, dice que no está disponible. |
+| Clave temporal (`DialogoDeClaveTemporal`) | Se muestra una sola vez en un diálogo que no se cierra con Esc ni con un clic fuera. Con "Ya la entregué" desaparece de la pantalla y de la caché de consultas.                                                      |
+
+**El número de documento nunca va en la URL ni en el almacenamiento.** Vive solo en el estado de `BuscarCliente`; al encontrar al cliente se navega por su id. La búsqueda llega al BFF por `GET` con el documento en la consulta, así que nginx no la escribe en el `access_log` (`log_format sin_consulta`) y `/api/clientes/por-documento` tiene su propia `location` con el `error_log` en nivel `crit`: un fallo del BFF no deja la consulta en el log (RNF-04).
+
+**Límite conocido (CL-15).** `Boton enCurso` y las mutaciones sin reintentos (`retry: 0`) evitan el doble clic, pero no el doble envío entre dos pestañas ni el reintento de red del navegador: ambos pueden abrir dos cuentas. Lo cierra la idempotencia de las especificaciones S4 y S5 del backend.
+
 ## Navegadores soportados (RNF-10)
 
 Las dos últimas versiones de Chrome, Edge, Firefox y Safari. La SPA usa `BroadcastChannel`, `Intl.NumberFormat` v3 y `:focus-visible`; el CI prueba en Chromium.

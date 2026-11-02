@@ -1,3 +1,126 @@
+# Revisión — 004-front-base, PR 4 de 004b (`core-bancario-web`, rama `feature/004b-backoffice`, T24–T28)
+
+## Veredicto: APROBADO
+
+Todos los comandos pasan, incluido `e2e:real` contra el compose local. No encontré nada obligatorio que corregir. El contrato coincide con `core-bancario` en `main`, el historial de pruebas es correcto y cada ID de la sección tiene implementación y al menos una prueba con prefijo `F004_`. Sí hay dos tareas de documentación que dependen de `core-bancario`; están más abajo, en "Desviaciones".
+
+## Trazabilidad
+
+| ID                | Implementado                                                                                                 | Prueba                                                                                                              | Nota                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| RF-01             | `FormularioDeRegistro.tsx`, `esquemaDeRegistro.ts`                                                           | `F004_CA23_DatosValidos_AbreLaFichaNueva`, `F004_CA23_EsquemaDeRegistro_*`                                          | RHF + Zod                                                                           |
+| RF-02             | `AbrirCuenta.tsx`, `useAbrirCuenta`                                                                          | `F004_CA24_DobleClicEnAbrirCuenta_…`                                                                                |                                                                                     |
+| RF-03             | `AccionesDeCuenta.tsx`, `useCambiarEstadoDeCuenta`                                                           | `F004_CA25_Bloquear_…`, `F004_CA25_Desbloquear_…`, `F004_CA25_CerrarCuenta_*`                                       |                                                                                     |
+| RF-12             | `BuscarCliente.tsx`, `useBuscarClientePorDocumento`                                                          | `F004_CA22_BuscarConPuntos_…`, `F004_CA22_BuscarSinPuntos_…`                                                        |                                                                                     |
+| RF-13             | `AccesoDigital.tsx`, `DialogoDeClaveTemporal.tsx`                                                            | `F004_CA30_*`, `F004_CA31_*`, `F004_CA28_Deshabilitar_…`                                                            |                                                                                     |
+| RF-16             | `useEstadoDeAcceso`, `comoEstadoDelAcceso`, `accionesDeAcceso`                                               | `F004_CA28_Ficha_MuestraEstadoYAccionesDelAcceso_*`, `F004_CA28_HabilitadoConPrimerIngresoPendiente_LoDice`         |                                                                                     |
+| RN-14             | `accionesDeCuenta`                                                                                           | `F004_CA25_AccionesDeCuenta_SegunEstado_*`, `F004_CA25_Ficha_ActivaBloqueadaYCerrada_…`                             | Un estado desconocido no ofrece acciones (`F004_CA25_CuentaConEstadoDesconocido_…`) |
+| RN-20             | Texto de la confirmación de "Restablecer"                                                                    | `F004_CA31_Restablecer_ConfirmacionExplicaConsecuencias…`                                                           |                                                                                     |
+| CL-15             | `Boton enCurso` y `mutations: { retry: 0, gcTime: 0 }`                                                       | `F004_CA24_*`, `F004_CL15_ErrorAlAbrirCuenta_NoReintentaSola…`                                                      | El límite conocido está en el README                                                |
+| CL-16             | `onError` 409 → `invalidateQueries(['ficha', id])`                                                           | `F004_CA27_Conflicto409_MensajeYLaFichaSeRecarga`                                                                   |                                                                                     |
+| CL-17             | `Dialogo` sin `alCerrar`, `habilitar.reset`                                                                  | `F004_CA30_DialogoDeClave_NoSeCierraConEscNiClicFuera`, `F004_CA30_YaLaEntregue_…DelDomYDeLaCache`                  |                                                                                     |
+| CL-18             | 422 → mensaje de negocio                                                                                     | `F004_CA26_CerrarConSaldo_MensajeDeNegocioYSigueActiva`                                                             |                                                                                     |
+| CL-19             | Mensajes `identidad-*`                                                                                       | `F004_CL19_FallaAlHabilitar_%i_…`, `F004_CL19_ReintentoConExito_…`                                                  |                                                                                     |
+| CL-20             | 502/503 o estado desconocido → "Estado del acceso no disponible"                                             | `F004_CA32_EstadoNoDisponible_%i_…`, `F004_CA32_EstadoDesconocido_…`                                                | Las acciones se ocultan (ver desviaciones)                                          |
+| CL-21             | Título según `respuesta.accion` y aviso en "Habilitar"                                                       | `F004_CL21_BotonHabilitarPeroApiRestablece_DialogoDiceRestablecido`                                                 |                                                                                     |
+| CL-22             | 404 → aviso + "Registrarlo" con el documento                                                                 | `F004_CL22_*` (3)                                                                                                   |                                                                                     |
+| CL-23             | 409 `documento-duplicado` → "Ir a la ficha"                                                                  | `F004_CL23_DocumentoDuplicado_OfreceIrALaFicha`                                                                     |                                                                                     |
+| CL-24             | `MensajeDeError` con "Reintentar" en las consultas y genérico + `traceId` en las acciones                    | `F004_CL24_BuscarConError500_…`, `F004_CL24_FichaConError500_…`, `F004_CL24_BloquearConError500_…`                  |                                                                                     |
+| CA-22             | Sí                                                                                                           | `F004_CA22_*` (Vitest y rutas)                                                                                      | URL, `history.state` y ruteador sin el número                                       |
+| CA-23             | Sí                                                                                                           | `F004_CA23_TelefonoSinCodigoDePais_…`, `F004_CA23_Error400DeLaApi_JuntoASuCampo`, `F004_CA23_EsquemaDeRegistro_*`   |                                                                                     |
+| CA-24             | Sí                                                                                                           | `F004_CA24_DobleClicEnAbrirCuenta_UnaSolaPeticionYCuentaUsdEnCero`                                                  |                                                                                     |
+| CA-25             | Sí                                                                                                           | `F004_CA25_*`                                                                                                       |                                                                                     |
+| CA-26             | Sí                                                                                                           | `F004_CA26_*`                                                                                                       |                                                                                     |
+| CA-27             | Sí                                                                                                           | `F004_CA27_*`                                                                                                       |                                                                                     |
+| CA-28             | Sí                                                                                                           | `F004_CA28_*`                                                                                                       |                                                                                     |
+| CA-30             | Sí                                                                                                           | Vitest `F004_CA30_*` · simulada `F004_CA30_ClaveTemporal_NoQuedaEnUrlNiAlmacenamiento`                              |                                                                                     |
+| CA-31             | Sí                                                                                                           | `F004_CA31_*`                                                                                                       |                                                                                     |
+| CA-32             | Sí                                                                                                           | `F004_CA32_*`, `F004_CL19_*`                                                                                        |                                                                                     |
+| CA-33             | Sí                                                                                                           | Real `F004_CA33_OperadorBuscaYBloquea_LaFichaMuestraBloqueada` (+2 pasos)                                           | En verde en local                                                                   |
+| CA-35             | Sí                                                                                                           | `F004_CA35_CadaPantalla_SinFallosAA_Backoffice*` (11 pantallas y estados), `F004_CA35_ClaveTemporal_SoloConTeclado` |                                                                                     |
+| CA-36             | Sí                                                                                                           | `F004_CA36_Backoffice1280px_SinScrollHorizontal_*` (11)                                                             |                                                                                     |
+| CA-02 (regresión) | `BuscarCliente` sustituye a `InicioDelBackoffice`                                                            | `F004_CA02_BuscarCliente_*`                                                                                         | Sustituyen a las `F004_CA02_InicioDelBackoffice_*`                                  |
+| CL-08 (regresión) | Ruta `*` dentro de `/backoffice`                                                                             | `F004_CL08_RutaMalEscrita…DelBackoffice_*`                                                                          |                                                                                     |
+| RNF-04            | Documento solo en el estado del componente; búsqueda como mutación; `location` de nginx con `error_log crit` | `F004_CA22_*`, `F004_CL22_…NoPasaElDocumentoPorLaUrl`, `F004_CA30_*`                                                | Ver la sección RNF                                                                  |
+| RNF-08 / RNF-09   | Sí                                                                                                           | CA-35 y CA-36                                                                                                       |                                                                                     |
+| RNF-13            | `contratos/` y `src/api/generado/`                                                                           | Paso "Contratos y tipos al día" del CI                                                                              | Comprobado en local                                                                 |
+| RNF-14            | Commit `d7ee980` en rojo                                                                                     | —                                                                                                                   | Ver la sección RNF                                                                  |
+| RNF-15            | Recorrido del operador                                                                                       | Real CA-33                                                                                                          |                                                                                     |
+
+Todas las pruebas nuevas llevan el prefijo `F004_`. No hay ninguna sin prefijo ni con el de otra feature.
+
+## Hallazgos obligatorios
+
+Ninguno.
+
+Comprobaciones hechas:
+
+- **Integridad de las pruebas.** `git log --grep "pruebas en rojo"` → `d7ee980`. Después de ese commit, los únicos cambios a pruebas (`*.test.tsx`, `src/pruebas/renderizar.tsx` y `e2e/real/recorridoDelOperador.spec.ts`) están en `e1d7e6d`, que es `test(004): …`. El commit `feat` `e3d6aa0` no toca ninguna prueba ni `src/pruebas/` ni `e2e/`.
+- **Esqueletos.** No queda ningún `// SDD: esqueleto creado por test-writer` en `src/` ni en `e2e/`.
+- **Generados.** Los dos `contratos/*.json` son idénticos a `origin/main` de `core-bancario` (`8e13bd6`). `npm run tipos` no deja cambios en `src/api/generado/`.
+- **Seguridad (ADR-0020 y `CLAUDE.md`).**
+  - En el código nuevo no hay `fetch` suelto, `localStorage`, `sessionStorage`, `Number`, `parseFloat`, `dangerouslySetInnerHTML`, `detail`, `any`, `!` ni `as` para forzar tipos.
+  - Todas las llamadas pasan por `useClienteDeLaApi`.
+  - El saldo se muestra con `formatearSaldo`.
+- **Inactividad (ADR-0021).** No hay latidos nuevos. Las mutaciones no cuentan como actividad: lo que cuenta es el clic, como ya pasaba en 004a.
+- **Construcción (ADR-0022).** RHF + Zod con `setError` para los 400 y React Aria para los diálogos. La excepción es la versión de `@hookform/resolvers` (ver desviaciones).
+
+## Sugerencias opcionales
+
+1. **Foco después de los diálogos de acceso (accesibilidad, no bloquea).** En `AccesoDigital.tsx`, al confirmar, el diálogo de confirmación se cierra mientras el botón "Habilitar" ya está `disabled` por `enCurso`. Al terminar, la acción cambia y sus botones se vuelven a crear con otras claves. Por eso es probable que, al pulsar "Ya la entregué", el foco caiga en `body` en vez de en la tarjeta "Acceso digital". No lo comprobé en el navegador. CA-35 se cumple (el flujo se completa con teclado), pero un usuario de teclado pierde su posición. Una corrección mínima: mover el foco al `h2` "Acceso digital" (con `tabIndex={-1}`) en `onEntregada`. Responsable: coder, y que el test-writer añada una aserción de `document.activeElement` en `F004_CA35_ClaveTemporal_SoloConTeclado`.
+2. **Nombres accesibles repetidos.** Cada cuenta tiene botones "Bloquear" y "Cerrar" con el mismo nombre (`AccionesDeCuenta.tsx`). Están dentro de un `li` con el número de la cuenta como `h3`, así que no es un fallo AA. Aun así, con `aria-describedby` hacia el `h3`, el lector de pantalla diría a qué cuenta afecta el botón.
+3. **Aviso de "no registrado" desactualizado.** En `BuscarCliente.tsx`, si el operador cambia el número después de un 404, "No hay un cliente con ese documento" sigue a la vista, y "Registrarlo" usa el número nuevo, que nadie buscó. Bastaría con `buscar.reset()` en el `onChange` del número y del tipo.
+4. **Mensaje de conflicto.** `MENSAJES_DE_ERROR['conflicto-de-concurrencia']` (de 004a) dice "Actualiza la pantalla e inténtalo de nuevo", pero la ficha ya se recarga sola (CL-16). Se podría acortar a "La cuenta cambió mientras tanto; ya ves su estado actual".
+5. **Prueba de CA-22 un poco más precisa.** `F004_CA22_BuscarConPuntos_…` comprueba `tipoDocumento` en la petición, pero no que `numeroDocumento` sí viaje en la consulta de la _petición_. Responsable: test-writer.
+6. **Tamaño del paquete.** `vite build` avisa de que `index-*.js` pesa 561 kB (más de 500 kB). Cargar el área del backoffice con `lazy()` sacaría RHF y Zod del paquete del cliente. Puede esperar a otra feature.
+7. **Commit fuera de la sección.** `d8447b1` (estabiliza la prueba real del cliente de 004a) no pertenece a T24–T28. Es un `test(...)` legítimo que hacía falta para que `e2e:real` quedara en verde, pero conviene mencionarlo en la descripción del PR.
+
+## Desviaciones entre spec/plan y código
+
+- **`@hookform/resolvers` 7.0.0 en lugar de la 6.0.0 de ADR-0022.** El autor la aceptó y está documentada en `learning.md` §4 y en `avance.md`. **Pendiente: actualizar ADR-0022 en `core-bancario`**, como dice `learning.md`.
+- **CA-32 / CL-20.** La spec dice "acciones de acceso desactivadas"; el código las **oculta**, que es lo que fija el plan (`accionesDeAcceso('no-disponible') = []`). Conviene unificar la redacción de la spec con el plan.
+- **T24 se hizo en el commit en rojo.** El test-writer sincronizó `contratos/` y `api.d.ts` en `d7ee980` porque las pruebas lo necesitaban para compilar. `avance.md` lo dice.
+- **Piezas que el plan no nombraba:**
+  - `comun/componentes/Campo.tsx`;
+  - `comoEstadoDeCuenta` y `comoEstadoDelAcceso` en `acciones.ts`, que convierten el texto libre del contrato en los tipos cerrados de la app;
+  - `z.config({ jitless: true })`, para no provocar una violación de la CSP (RNF-03);
+  - la ruta `*` dentro de `/backoffice`;
+  - la búsqueda implementada como `useMutation`, para que el documento no entre en una clave de caché;
+  - una `location = /api/clientes/por-documento` en `infra/nginx/default.conf`, archivo que T28 no lista. Es un refuerzo justificado de RNF-04.
+
+  Conviene añadir una lista "Añadidos y desviaciones del Build (004b)" en la sección 3.4 del plan, como se hizo con 004a.
+
+- **Casillas de `tasks.md`.** T24–T28 siguen en `[ ]` en `../core-bancario/specs/004-front-base/tasks.md`; `avance.md` sí las marca. Hay que marcarlas en el próximo PR de `core-bancario`.
+- **Bitácora.** `construccion/004-front-base/avance.md` (lista T24–T28) y `construccion/004-front-base/learning.md` existen y tienen sección de 004b.
+
+## Resultado de las pruebas
+
+- `npm ci`: correcto, con Node 24.22.1. Hay 15 avisos de `npm audit` de nivel moderado.
+- `npm run lint`: sin errores.
+- `npm run format:check`: todos los archivos tienen el formato de Prettier.
+- `npm run typecheck`: correcto.
+- `npm test`: **257 de 257**.
+- `npm run build`: correcto, con el aviso de tamaño de la sugerencia 6. El hash del paquete (`index-VA489ZxS.js`) coincide con el que sirve el contenedor `core-bancario-web`, así que `e2e:real` probó exactamente este código.
+- `npm run e2e:simulado`: **61 de 61**.
+- `npm run e2e:real`: **15 de 15**, contra el compose local ya levantado, con `KC_BOOTSTRAP_ADMIN_*` tomados de `../core-bancario/.env`. Los tres pasos de CA-33 están en verde.
+- `npm run tipos`: no deja cambios.
+
+**RNF:**
+
+- **RNF-04: cumple.** Después de `e2e:real`, `docker logs` de web, BFF y API tienen 0 líneas con `numeroDocumento=` y 0 con `claveTemporal`. El `access_log` de nginx registra solo `GET /api/clientes/por-documento`, sin la consulta.
+- **RNF-08 y RNF-09: cumplen.** Axe y los anchos en 11 pantallas y estados, más el flujo de la clave solo con teclado.
+- **RNF-13: cumple.**
+- **RNF-15: cumple en local.** El CI no lo verifiqué.
+- **RNF-14:** el commit en rojo existe y es anterior a la implementación. No volví a ejecutar las pruebas sobre `d7ee980` para ver el rojo; me fío de `avance.md`.
+
+## Preguntas de comprensión para el autor
+
+1. La búsqueda por documento es un `GET` que no cambia nada, pero el PR la implementa con `useMutation` y no con `useQuery`. ¿Qué pasaría con el número de documento (dónde quedaría, cuánto tiempo y quién podría verlo) si fuera una consulta con `queryKey: ['cliente', tipo, numero]`? ¿Qué papel cumple `gcTime: 0`?
+2. El estado del acceso digital tiene su propia consulta (`['acceso', id]`), separada de la ficha (`['ficha', id]`). ¿Qué requisito obliga a separarlas? ¿Qué vería el operador si estuvieran juntas y Keycloak no respondiera?
+3. ¿Por qué el título del diálogo de la clave usa `respuesta.accion` y no el botón que pulsó el operador? Describe el escenario de CL-21 en el que darían resultados distintos.
+
+---
+
 # Revisión — 004-front-base, PR 2 de 004a (`core-bancario-web`, T12–T20)
 
 ## Veredicto: APROBADO
