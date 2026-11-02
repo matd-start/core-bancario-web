@@ -12,12 +12,11 @@ export interface PlazosLocales {
 }
 
 /**
- * .NET 10 declara los enteros del contrato como `number | string`. Se convierte con comprobación: un valor que no es
- * un número finito cuenta como 0, o sea "ya venció" (cerrar la sesión es lo seguro si no se entiende el plazo).
+ * Un plazo negativo o no finito (JSON.parse convierte `1e400` en Infinity) cuenta como 0, o sea "ya venció": cerrar
+ * la sesión es lo seguro si no se entiende el plazo.
  */
-function segundosEnMilisegundos(segundos: number | string): number {
-  const valor = typeof segundos === 'number' ? segundos : Number.parseFloat(segundos);
-  return Number.isFinite(valor) ? Math.max(0, valor) * 1000 : 0;
+function segundosEnMilisegundos(segundos: number): number {
+  return Number.isFinite(segundos) ? Math.max(0, segundos) * 1000 : 0;
 }
 
 /** El servidor manda duraciones, no fechas (ADR-0021): se suman a la hora local en que llegó la respuesta. */

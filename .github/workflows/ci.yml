@@ -162,8 +162,9 @@ jobs:
             test-results
           retention-days: 7
 
+      # Siempre, no solo si falla: un aviso en los logs (p. ej. "no cerró la sesión") puede aparecer en una corrida verde.
       - name: Logs de los contenedores
-        if: failure()
+        if: always()
         run: docker compose -f ../core-bancario/docker-compose.yml --profile app --profile web logs
 
   secrets:
