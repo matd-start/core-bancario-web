@@ -71,7 +71,11 @@ function crearClienteDeConsultasDePruebas(): QueryClient {
  * a dónde se navegó y la caché para comprobar qué quedó guardado en ella.
  */
 export function renderizarElBackoffice(ruta = '/backoffice') {
-  servidor.use(http.get('/bff/sesion', () => HttpResponse.json(crearSesionDeOperador())));
+  // El latido (POST /bff/actividad) también debe responder con la sesión del operador, o la app creería que cambió de área.
+  servidor.use(
+    http.get('/bff/sesion', () => HttpResponse.json(crearSesionDeOperador())),
+    http.post('/bff/actividad', () => HttpResponse.json(crearSesionDeOperador())),
+  );
   window.history.replaceState(null, '', ruta);
   const clienteDeConsultas = crearClienteDeConsultasDePruebas();
   const router = createMemoryRouter(

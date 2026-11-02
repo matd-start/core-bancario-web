@@ -80,9 +80,9 @@ test('F004_CA33_OperadorBuscaYBloquea_LaFichaMuestraBloqueada', async () => {
   await expect(cuenta.getByText('Activa')).toBeVisible();
 
   // RF-03: Bloquear no pide confirmación; la ficha recarga y muestra la cuenta Bloqueada con solo "Desbloquear".
-  await cuenta.getByRole('button', { name: 'Bloquear' }).click();
+  await cuenta.getByRole('button', { name: 'Bloquear', exact: true }).click();
 
   await expect(cuenta.getByText('Bloqueada')).toBeVisible();
   await expect(cuenta.getByRole('button', { name: 'Desbloquear' })).toBeVisible();
-  await expect(cuenta.getByRole('button', { name: 'Bloquear' })).toHaveCount(0);
+  await expect(cuenta.getByRole('button', { name: 'Bloquear', exact: true })).toHaveCount(0);
 });

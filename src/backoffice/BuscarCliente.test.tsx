@@ -251,7 +251,6 @@ describe('BuscarCliente: registrar (RF-01)', () => {
   });
 
   test('F004_CA23_DatosValidos_AbreLaFichaNueva', async () => {
-    documentoNoRegistrado();
     const cuerpos: Record<string, unknown>[] = [];
     const nuevo = crearCliente({ id: '0199a000-0000-7000-8000-0000000000d2', numeroDocumento: '9876543' });
     servidor.use(
@@ -261,6 +260,8 @@ describe('BuscarCliente: registrar (RF-01)', () => {
       }),
       http.get('/api/clientes/:clienteId', () => HttpResponse.json(crearFicha([], nuevo))),
     );
+    // Después de :clienteId, que también casaría con 'por-documento': MSW da prioridad al último registrado.
+    documentoNoRegistrado();
     const { router } = renderizarElBackoffice('/backoffice');
     await abrirElRegistro('9876543');
     await completarRegistro();
