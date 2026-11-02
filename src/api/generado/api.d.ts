@@ -291,20 +291,26 @@ export interface components {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
             errors?: {
                 [key: string]: string[];
             };
+            codigo: components["schemas"]["CodigoDeError"];
+            /** @description Identificador de correlación de la petición (W3C trace context): el que el usuario da a soporte al reportar un error. */
+            traceId: string;
         };
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
+            codigo: components["schemas"]["CodigoDeError"];
+            /** @description Identificador de correlación de la petición (W3C trace context): el que el usuario da a soporte al reportar un error. */
+            traceId: string;
         };
         RegistrarClienteRequest: {
             tipoDocumento: null | string;

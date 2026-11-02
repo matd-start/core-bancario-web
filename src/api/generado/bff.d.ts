@@ -97,18 +97,21 @@ export interface components {
             type?: null | string;
             title?: null | string;
             /** Format: int32 */
-            status?: null | number | string;
+            status?: null | number;
             detail?: null | string;
             instance?: null | string;
+            codigo: components["schemas"]["CodigoDeErrorDelBff"];
+            /** @description Identificador de correlación de la petición (W3C trace context): el que el usuario da a soporte al reportar un error. */
+            traceId: string;
         };
         SesionDto: {
             area: string;
             usuario: string;
             rol: null | string;
             /** Format: int32 */
-            segundosHastaInactividad: number | string;
+            segundosHastaInactividad: number;
             /** Format: int32 */
-            segundosHastaVidaMaxima: number | string;
+            segundosHastaVidaMaxima: number;
         };
     };
     responses: never;
