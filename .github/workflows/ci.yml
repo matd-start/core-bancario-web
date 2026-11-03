@@ -130,7 +130,10 @@ jobs:
             echo "CORE_BANCARIO_WEB_DIR=${{ github.workspace }}"
           } >> "$GITHUB_ENV"
 
+      # Timeout por paso, no solo el del job: un paso que se pasa de tiempo FALLA y el job sigue con la traza y los logs.
+      # Si se agotara el del job (40 min), GitHub lo cancelaría, y ni failure() ni !cancelled() correrían.
       - name: Levantar el compose completo
+        timeout-minutes: 15
         run: docker compose -f ../core-bancario/docker-compose.yml --profile app --profile web up -d --build --wait
 
       - name: Esperar a que Keycloak importe los realms
@@ -150,6 +153,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Recorridos reales
+        timeout-minutes: 15
         run: npm run e2e:real
 
       - name: Traza de Playwright
@@ -163,7 +167,7 @@ jobs:
           retention-days: 7
 
       # En corridas verdes y rojas, no solo si falla: un aviso en los logs (p. ej. "no cerró la sesión") puede aparecer
-      # en una corrida verde. No en las canceladas: always() correría también ahí, con el compose a medio parar.
+      # en una corrida verde. No al cancelar a mano: quien cancela ya no espera el resultado.
       - name: Logs de los contenedores
         if: ${{ !cancelled() }}
         run: docker compose -f ../core-bancario/docker-compose.yml --profile app --profile web logs
