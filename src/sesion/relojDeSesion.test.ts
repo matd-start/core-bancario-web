@@ -13,6 +13,22 @@ describe('aPlazosLocales', () => {
 
     expect(plazos).toEqual({ venceInactividad: 1_000_000 + 300_000, venceVidaMaxima: 1_000_000 + 1_794_000 });
   });
+
+  // Si no se entiende el plazo, lo seguro es cerrar la sesión. `JSON.parse('1e400')` da Infinity.
+  test.each([
+    ['segundosHastaInactividad', -300, 'inactividad'],
+    ['segundosHastaInactividad', Infinity, 'inactividad'],
+    ['segundosHastaInactividad', NaN, 'inactividad'],
+    ['segundosHastaVidaMaxima', -300, 'vida-maxima'],
+    ['segundosHastaVidaMaxima', Infinity, 'vida-maxima'],
+    ['segundosHastaVidaMaxima', NaN, 'vida-maxima'],
+  ] as const)('F004_CL06_APlazosLocales_PlazoNegativoONoFinito_CuentaComoYaVencido_%s_%s', (campo, valor, motivo) => {
+    const recibidoEn = 1_000_000;
+
+    const plazos = aPlazosLocales(crearSesion({ [campo]: valor }), recibidoEn);
+
+    expect(evaluarReloj(plazos, recibidoEn)).toEqual({ tipo: 'vencida', motivo });
+  });
 });
 
 describe('evaluarReloj', () => {
