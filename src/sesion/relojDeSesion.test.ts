@@ -15,20 +15,30 @@ describe('aPlazosLocales', () => {
   });
 
   // Si no se entiende el plazo, lo seguro es cerrar la sesión. `JSON.parse('1e400')` da Infinity.
+  // Se comprueba el objeto completo: el plazo inválido cuenta como 0 y el otro queda intacto.
   test.each([
-    ['segundosHastaInactividad', -300, 'inactividad'],
-    ['segundosHastaInactividad', Infinity, 'inactividad'],
-    ['segundosHastaInactividad', NaN, 'inactividad'],
-    ['segundosHastaVidaMaxima', -300, 'vida-maxima'],
-    ['segundosHastaVidaMaxima', Infinity, 'vida-maxima'],
-    ['segundosHastaVidaMaxima', NaN, 'vida-maxima'],
-  ] as const)('F004_CL06_APlazosLocales_PlazoNegativoONoFinito_CuentaComoYaVencido_%s_%s', (campo, valor, motivo) => {
-    const recibidoEn = 1_000_000;
+    ['segundosHastaInactividad', -300, 'venceInactividad', 'inactividad'],
+    ['segundosHastaInactividad', Infinity, 'venceInactividad', 'inactividad'],
+    ['segundosHastaInactividad', NaN, 'venceInactividad', 'inactividad'],
+    ['segundosHastaVidaMaxima', -300, 'venceVidaMaxima', 'vida-maxima'],
+    ['segundosHastaVidaMaxima', Infinity, 'venceVidaMaxima', 'vida-maxima'],
+    ['segundosHastaVidaMaxima', NaN, 'venceVidaMaxima', 'vida-maxima'],
+  ] as const)(
+    'F004_CL06_APlazosLocales_PlazoNegativoONoFinito_CuentaComoYaVencido_%s_%s',
+    (campo, valor, plazoAfectado, motivo) => {
+      const recibidoEn = 1_000_000;
+      const sesion = crearSesion({ segundosHastaInactividad: 300, segundosHastaVidaMaxima: 1794, [campo]: valor });
 
-    const plazos = aPlazosLocales(crearSesion({ [campo]: valor }), recibidoEn);
+      const plazos = aPlazosLocales(sesion, recibidoEn);
 
-    expect(evaluarReloj(plazos, recibidoEn)).toEqual({ tipo: 'vencida', motivo });
-  });
+      expect(plazos).toEqual({
+        venceInactividad: recibidoEn + 300_000,
+        venceVidaMaxima: recibidoEn + 1_794_000,
+        [plazoAfectado]: recibidoEn,
+      });
+      expect(evaluarReloj(plazos, recibidoEn)).toEqual({ tipo: 'vencida', motivo });
+    },
+  );
 });
 
 describe('evaluarReloj', () => {
